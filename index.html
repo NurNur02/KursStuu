@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMS · Нуржан и выполнение заданий</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn {
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .btn-primary {
+            background: #1d4ed8;
+            color: white;
+            box-shadow: 0 5px 12px rgba(29,78,216,0.3);
+        }
+        .btn-primary:hover { background: #1e3fb0; transform: scale(1.02); }
+        
+        .topic-card {
+            background: #fafdff;
+            border-radius: 28px;
+            border: 1px solid #dee9f2;
+            margin-bottom: 22px;
+        }
+        .topic-header {
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2eaf2;
+            cursor: pointer;
+        }
+        .assignment-item {
+            background: #f4f9ff;
+            border-radius: 16px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid #1d4ed8;
+            margin-bottom: 8px;
+        }
+        .assignment-item.test-type { border-left-color: #7c3aed; }
+        .assignment-item.document-type { border-left-color: #b45309; }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-not-started { background: #f3f4f6; color: #4b5563; }
+        .status-in-progress { background: #dbeafe; color: #2563eb; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-overdue { background: #fee2e2; color: #991b1b; }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .question-option {
+            transition: all 0.2s;
+        }
+        .question-option:hover {
+            background: #eef2ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="root" class="max-w-7xl mx-auto"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js"></script>
+
+    <script type="text/babel">
+        const App = () => {
+            // ----- СОСТОЯНИЕ -----
+            const [currentUser, setCurrentUser] = React.useState(null);
+            const [users, setUsers] = React.useState([]);
+            const [groups, setGroups] = React.useState([
+                { id: 'g1', name: 'Питон-101', color: '#2563eb', courseId: 'course1', students: ['2', '3', '5'] },
+                { id: 'g2', name: 'Веб-питон', color: '#16a34a', courseId: 'course1', students: [] }
+            ]);
+            
+            const [topics, setTopics] = React.useState([
+                {
+                    id: 't1',
+                    title: 'Введение в ООП',
+                    courseId: 'course1',
+                    assignments: [
+                        { 
+                            id: 'a1', 
+                            type: 'test', 
+                            name: 'Тест: основы классов', 
+                            groupId: 'g1', 
+                            maxScore: 100,
+                            description: 'Проверка базовых понятий ООП',
+                            questions: [
+                                {
+                                    id: 'q1',
+                                    text: 'Что такое класс?',
+                                    type: 'single',
+                                    options: [
+                                        { id: 'q1o1', text: 'Чертеж для создания объектов', isCorrect: true },
+                                        { id: 'q1o2', text: 'Готовая функция', isCorrect: false },
+                                        { id: 'q1o3', text: 'Переменная', isCorrect: false }
+                                    ]
+                                },
+                                {
+                                    id: 'q2',
+                                    text: 'Какие принципы ООП существуют?',
+                                    type: 'multiple',
+                                    options: [
+                                        { id: 'q2o1', text: 'Инкапсуляция', isCorrect: true },
+                                        { id: 'q2o2', text: 'Наследование', isCorrect: true },
+                                        { id: 'q2o3', text: 'Полиморфизм', isCorrect: true },
+                                        { id: 'q2o4', text: 'Компиляция', isCorrect: false }
+                                    ]
+                                }
+                            ]
+                        },
+                        { 
+                            id: 'a2', 
+                            type: 'document', 
+                            name: 'Практика: инкапсуляция', 
+                            groupId: 'g1', 
+                            fileType: 'pdf',
+                            description: 'Скачайте файл и выполните задания',
+                            fileUrl: '#'
+                        }
+                    ],
+                    tests: [
+                        { id: 'tt1', name: 'Инкапсуляция (теория)' }
+                    ]
+                },
+                {
+                    id: 't2',
+                    title: 'Наследование',
+                    courseId: 'course1',
+                    assignments: [
+                        { 
+                            id: 'a3', 
+                            type: 'document', 
+                            name: 'Диаграмма классов', 
+                            groupId: 'g1', 
+                            fileType: 'docx',
+                            description: 'Постройте диаграмму наследования',
+                            fileUrl: '#'
+                        },
+                        { 
+                            id: 'a4', 
+                            type: 'test', 
+                            name: 'Тест: наследование', 
+                            groupId: 'g1', 
+                            maxScore: 100,
+                            description: 'Проверка знаний наследования',
+                            questions: [
+                                {
+                                    id: 'q3',
+                                    text: 'Какое ключевое слово используется для наследования в Python?',
+                                    type: 'single',
+                                    options: [
+                                        { id: 'q3o1', text: 'extends', isCorrect: false },
+                                        { id: 'q3o2', text: 'inherits', isCorrect: false },
+                                        { id: 'q3o3', text: 'class Child(Parent)', isCorrect: true }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    tests: []
+                }
+            ]);
+
+            const [courses, setCourses] = React.useState([
+                { id: 'course1', title: 'Программирование на Python', description: 'Полный курс Python', createdAt: '2026-03-15' }
+            ]);
+
+            // Состояние для выполнения заданий студентом
+            const [studentProgress, setStudentProgress] = React.useState({});
+            const [currentAssignment, setCurrentAssignment] = React.useState(null);
+            const [assignmentAnswers, setAssignmentAnswers] = React.useState({});
+            const [view, setView] = React.useState('login');
+            const [notifications, setNotifications] = React.useState([]);
+
+            // Инициализация пользователей: заменяем Ивана на Нуржана
+            React.useEffect(() => {
+                const admin = {
+                    id: '1',
+                    name: 'Администратор',
+                    email: 'admin@lms.com',
+                    password: 'admin123',
+                    role: 'ADMIN',
+                    lastLogin: null
+                };
+                const students = [
+                    { id: '2', name: 'Нуржан Алиев', email: 'nurjan@student.com', password: 'student123', role: 'STUDENT', groupId: 'g1' },
+                    { id: '3', name: 'Мария Сидорова', email: 'maria@student.com', password: 'student123', role: 'STUDENT', groupId: 'g1' },
+                    { id: '5', name: 'Нуржан (дубль)', email: 'nurjan2@student.com', password: 'student123', role: 'STUDENT', groupId: 'g1' }
+                ];
+                setUsers([admin, ...students]);
+
+                // Инициализируем прогресс для Нуржана (id: 2)
+                const initialProgress = {};
+                topics.forEach(topic => {
+                    topic.assignments.forEach(ass => {
+                        const key = `${ass.id}_2`; // для студента с id 2
+                        initialProgress[key] = { status: 'not_started', score: null, answers: {} };
+                    });
+                });
+                setStudentProgress(initialProgress);
+            }, []);
+
+            // Утилиты
+            const addNotification = (type, message) => {
+                const id = Date.now();
+                setNotifications(prev => [...prev, { id, type, message }]);
+                setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
+            };
+
+            const findGroupName = (groupId) => groups.find(g => g.id === groupId)?.name || '???';
+
+            // Вход/выход
+            const handleLogin = (email, password) => {
+                const user = users.find(u => u.email === email && u.password === password);
+                if (user) {
+                    user.lastLogin = new Date().toISOString();
+                    setCurrentUser(user);
+                    setView(user.role === 'ADMIN' ? 'adminDashboard' : 'studentDashboard');
+                    addNotification('success', `Добро пожаловать, ${user.name}!`);
+                } else {
+                    addNotification('error', 'Неверный email или пароль');
+                }
+            };
+
+            const handleLogout = () => {
+                setCurrentUser(null);
+                setCurrentAssignment(null);
+                setView('login');
+            };
+
+            // Функции для студента: начать задание, ответить, отправить
+            const startAssignment = (assignment) => {
+                setCurrentAssignment(assignment);
+                setAssignmentAnswers({});
+                addNotification('info', `Начато задание: ${assignment.name}`);
+            };
+
+            const handleAnswerChange = (questionId, optionId, questionType) => {
+                if (questionType === 'single') {
+                    setAssignmentAnswers(prev => ({ ...prev, [questionId]: [optionId] }));
+                } else {
+                    setAssignmentAnswers(prev => {
+                        const current = prev[questionId] || [];
+                        if (current.includes(optionId)) {
+                            return { ...prev, [questionId]: current.filter(id => id !== optionId) };
+                        } else {
+                            return { ...prev, [questionId]: [...current, optionId] };
+                        }
+                    });
+                }
+            };
+
+            const submitAssignment = () => {
+                if (!currentAssignment) return;
+                
+                // Подсчет баллов для теста
+                if (currentAssignment.type === 'test') {
+                    let correctCount = 0;
+                    let totalQuestions = currentAssignment.questions.length;
+                    
+                    currentAssignment.questions.forEach(q => {
+                        const userAnswers = assignmentAnswers[q.id] || [];
+                        const correctOptions = q.options.filter(opt => opt.isCorrect).map(opt => opt.id);
+                        
+                        if (q.type === 'single') {
+                            if (userAnswers[0] === correctOptions[0]) correctCount++;
+                        } else {
+                            const isCorrect = correctOptions.every(opt => userAnswers.includes(opt)) &&
+                                            userAnswers.every(opt => correctOptions.includes(opt));
+                            if (isCorrect) correctCount++;
+                        }
+                    });
+                    
+                    const score = Math.round((correctCount / totalQuestions) * 100);
+                    
+                    // Сохраняем прогресс
+                    const progressKey = `${currentAssignment.id}_${currentUser.id}`;
+                    setStudentProgress(prev => ({
+                        ...prev,
+                        [progressKey]: { status: 'completed', score, answers: assignmentAnswers, submittedAt: new Date().toISOString() }
+                    }));
+                    
+                    addNotification('success', `Задание выполнено! Оценка: ${score}%`);
+                } else {
+                    // Для документа просто отмечаем как выполненное (файл бы загружался)
+                    const progressKey = `${currentAssignment.id}_${currentUser.id}`;
+                    setStudentProgress(prev => ({
+                        ...prev,
+                        [progressKey]: { status: 'completed', score: null, answers: {}, submittedAt: new Date().toISOString() }
+                    }));
+                    addNotification('success', 'Задание сдано. Ожидайте проверки.');
+                }
+                
+                setCurrentAssignment(null);
+            };
+
+            const closeAssignment = () => setCurrentAssignment(null);
+
+            // Компонент уведомлений
+            const Notifications = () => (
+                <div className="fixed top-4 right-4 z-50 space-y-2">
+                    {notifications.map(n => (
+                        <div key={n.id} className={`glass-morphism p-4 animate-fade-in border-l-4 ${
+                            n.type === 'success' ? 'border-green-500' :
+                            n.type === 'error' ? 'border-red-500' : 'border-blue-500'
+                        }`}>
+                            <p className="text-sm">{n.message}</p>
+                        </div>
+                    ))}
+                </div>
+            );
+
+            // Страница входа
+            const LoginPage = () => {
+                const [email, setEmail] = React.useState('');
+                const [password, setPassword] = React.useState('');
+
+                const handleSubmit = (e) => {
+                    e.preventDefault();
+                    handleLogin(email, password);
+                };
+
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="glass-morphism p-8 w-full max-w-md">
+                            <h2 className="text-3xl font-bold gradient-text mb-6 text-center">LMS система</h2>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)}
+                                    className="w-full px-4 py-2 border rounded-lg" required />
+                                <input type="password" placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border rounded-lg" required />
+                                <button type="submit" className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white py-2 rounded-lg">
+                                    Войти
+                                </button>
+                            </form>
+                            <div className="mt-6 p-4 bg-gray-50 rounded text-sm">
+                                <p><strong>Админ:</strong> admin@lms.com / admin123</p>
+                                <p><strong>Нуржан:</strong> nurjan@student.com / student123</p>
+                                <p><strong>Мария:</strong> maria@student.com / student123</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // Панель администратора (упрощенная для фокуса)
+            const AdminDashboard = () => (
+                <div className="space-y-6">
+                    <div className="glass-morphism p-6 flex justify-between">
+                        <h1 className="text-2xl font-bold gradient-text">Администратор · {currentUser?.name}</h1>
+                        <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg">Выйти</button>
+                    </div>
+                    <div className="glass-morphism p-6">
+                        <h2 className="text-xl font-semibold mb-4">Структура курса</h2>
+                        {topics.map(topic => (
+                            <div key={topic.id} className="mb-6 p-4 border rounded">
+                                <h3 className="font-bold text-lg">{topic.title}</h3>
+                                <p className="text-sm text-gray-600 mt-2">Задания:</p>
+                                {topic.assignments.map(ass => (
+                                    <div key={ass.id} className="ml-4 p-2 bg-gray-50 rounded mt-1 flex items-center gap-2">
+                                        <i className={`fas ${ass.type === 'test' ? 'fa-check-circle text-purple-600' : 'fa-file-pdf text-orange-600'}`}></i>
+                                        <span>{ass.name}</span>
+                                        <span className="text-xs bg-blue-100 px-2 py-1 rounded ml-auto">{findGroupName(ass.groupId)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            // Панель студента (Нуржан) с возможностью выполнения заданий
+            const StudentDashboard = () => {
+                const studentGroup = groups.find(g => g.students?.includes(currentUser?.id));
+                
+                // Собираем все доступные задания для группы студента
+                const availableAssignments = topics.flatMap(topic => 
+                    topic.assignments
+                        .filter(ass => ass.groupId === studentGroup?.id)
+                        .map(ass => ({ ...ass, topicTitle: topic.title }))
+                );
+
+                const getAssignmentStatus = (assignmentId) => {
+                    const key = `${assignmentId}_${currentUser.id}`;
+                    return studentProgress[key]?.status || 'not_started';
+                };
+
+                const getAssignmentScore = (assignmentId) => {
+                    const key = `${assignmentId}_${currentUser.id}`;
+                    return studentProgress[key]?.score;
+                };
+
+                // Если выбрано задание для выполнения
+                if (currentAssignment) {
+                    return (
+                        <div className="glass-morphism p-8 max-w-3xl mx-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold">{currentAssignment.name}</h2>
+                                <button onClick={closeAssignment} className="text-gray-500 hover:text-gray-700">
+                                    <i className="fas fa-times text-2xl"></i>
+                                </button>
+                            </div>
+                            
+                            <p className="text-gray-600 mb-4">{currentAssignment.description}</p>
+                            
+                            {currentAssignment.type === 'test' ? (
+                                <div className="space-y-6">
+                                    {currentAssignment.questions.map((q, idx) => (
+                                        <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                                            <p className="font-medium mb-3">{idx+1}. {q.text}</p>
+                                            <div className="space-y-2 ml-4">
+                                                {q.options.map(opt => {
+                                                    const isSelected = (assignmentAnswers[q.id] || []).includes(opt.id);
+                                                    return (
+                                                        <div 
+                                                            key={opt.id}
+                                                            onClick={() => handleAnswerChange(q.id, opt.id, q.type)}
+                                                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer question-option ${
+                                                                isSelected ? 'bg-blue-100 border border-blue-300' : 'bg-white'
+                                                            }`}
+                                                        >
+                                                            {q.type === 'single' ? (
+                                                                <input type="radio" checked={isSelected} readOnly className="w-4 h-4" />
+                                                            ) : (
+                                                                <input type="checkbox" checked={isSelected} readOnly className="w-4 h-4" />
+                                                            )}
+                                                            <span>{opt.text}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    <button onClick={submitAssignment} className="btn btn-primary w-full py-3">
+                                        Отправить на проверку
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <i className="fas fa-file-pdf text-6xl text-red-500 mb-4"></i>
+                                    <p className="mb-4">Скачайте файл задания, выполните и загрузите ответ</p>
+                                    <div className="flex gap-4 justify-center">
+                                        <button className="btn btn-primary">
+                                            <i className="fas fa-download"></i> Скачать задание
+                                        </button>
+                                        <label className="btn bg-green-600 text-white">
+                                            <i className="fas fa-upload"></i> Загрузить ответ
+                                            <input type="file" className="hidden" />
+                                        </label>
+                                    </div>
+                                    <button onClick={submitAssignment} className="mt-6 text-blue-600 underline">
+                                        Отметить как выполненное (демо)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+
+                // Основной вид студента
+                return (
+                    <div className="space-y-6">
+                        <div className="glass-morphism p-6 flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold gradient-text">{currentUser?.name}</h1>
+                                <p className="text-gray-600">Группа: {studentGroup?.name || 'Не назначена'}</p>
+                            </div>
+                            <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg">Выйти</button>
+                        </div>
+
+                        {/* Статистика */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="glass-morphism p-6 text-center">
+                                <p className="text-3xl font-bold text-blue-600">{availableAssignments.length}</p>
+                                <p className="text-sm">Всего заданий</p>
+                            </div>
+                            <div className="glass-morphism p-6 text-center">
+                                <p className="text-3xl font-bold text-green-600">
+                                    {availableAssignments.filter(a => getAssignmentStatus(a.id) === 'completed').length}
+                                </p>
+                                <p className="text-sm">Выполнено</p>
+                            </div>
+                            <div className="glass-morphism p-6 text-center">
+                                <p className="text-3xl font-bold text-yellow-600">
+                                    {availableAssignments.filter(a => getAssignmentStatus(a.id) === 'in_progress').length}
+                                </p>
+                                <p className="text-sm">В процессе</p>
+                            </div>
+                            <div className="glass-morphism p-6 text-center">
+                                <p className="text-3xl font-bold text-purple-600">
+                                    {Math.round(
+                                        availableAssignments
+                                            .map(a => getAssignmentScore(a.id))
+                                            .filter(s => s !== null && s !== undefined)
+                                            .reduce((acc, s) => acc + s, 0) / 
+                                        (availableAssignments.filter(a => getAssignmentScore(a.id)).length || 1)
+                                    ) || 0}%
+                                </p>
+                                <p className="text-sm">Средний балл</p>
+                            </div>
+                        </div>
+
+                        {/* Список заданий */}
+                        <div className="glass-morphism p-6">
+                            <h3 className="text-xl font-semibold mb-4">📋 Мои задания</h3>
+                            
+                            {availableAssignments.length === 0 ? (
+                                <p className="text-gray-400 italic">Пока нет доступных заданий</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {availableAssignments.map(ass => {
+                                        const status = getAssignmentStatus(ass.id);
+                                        const score = getAssignmentScore(ass.id);
+                                        
+                                        return (
+                                            <div key={ass.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3">
+                                                            <i className={`fas ${
+                                                                ass.type === 'test' ? 'fa-check-circle text-purple-600' : 'fa-file-pdf text-orange-600'
+                                                            } text-xl`}></i>
+                                                            <div>
+                                                                <p className="font-semibold">{ass.name}</p>
+                                                                <p className="text-sm text-gray-500">{ass.topicTitle}</p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-600 mt-1 ml-8">{ass.description}</p>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-4">
+                                                        {score !== null && score !== undefined && (
+                                                            <span className="font-bold text-green-600">{score}%</span>
+                                                        )}
+                                                        <span className={`status-badge status-${status}`}>
+                                                            {status === 'not_started' ? 'Не начато' :
+                                                             status === 'in_progress' ? 'В процессе' :
+                                                             status === 'completed' ? 'Выполнено' : 'Просрочено'}
+                                                        </span>
+                                                        
+                                                        {status !== 'completed' ? (
+                                                            <button 
+                                                                onClick={() => startAssignment(ass)}
+                                                                className="btn btn-primary text-sm py-2"
+                                                            >
+                                                                Начать
+                                                            </button>
+                                                        ) : (
+                                                            <button className="text-gray-400 cursor-default" disabled>
+                                                                <i className="fas fa-check-circle text-green-500 text-2xl"></i>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div>
+                    <Notifications />
+                    {view === 'login' && <LoginPage />}
+                    {view === 'adminDashboard' && <AdminDashboard />}
+                    {view === 'studentDashboard' && <StudentDashboard />}
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
